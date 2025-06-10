@@ -38,10 +38,11 @@ def get_database():
 ## RetrievalQA 함수 정의
 def get_retrievalQA():
     LANGCHAIN_API_KEY = os.getenv('LANGCHAIN_API_KEY')
-    ## 벡터 스토어(데이터베이스)에서 인덱스 가져오기 ################
+    ## 벡터 스토어(데이터베이스)에서 인덱스 가져오기
     database = get_database()
 
-    prompt = hub.pull('rlm/rag-prompt', api_key=LANGCHAIN_API_KEY)
+    # prompt = hub.pull('rlm/rag-prompt', api_key=LANGCHAIN_API_KEY)
+    prompt = hub.pull('bravery/rag-prompt', api_key=LANGCHAIN_API_KEY)
 
     ## LLM 모델지정
     llm = get_llm()
