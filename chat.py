@@ -1,6 +1,6 @@
 # https://docs.streamlit.io/
 import streamlit as st
-from llm import get_ai_message, get_database, get_retrievalQA, get_llm
+from llm import get_ai_message
 
 st.set_page_config(
     page_title='전세사기피해 상담 챗봇',
