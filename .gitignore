@@ -1,6 +1,7 @@
 ## 파일
 .env
 test.py
+*-original.py
 
 ## 폴더
 __pycache__/
