@@ -41,7 +41,8 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
 
 def get_retrievalQA():
     llm = get_llm()
-    retriever = get_database().as_retriever()
+    database = get_database()
+    retriever = database.as_retriever(search_kwargs={'k': 2})
 
     contextualize_q_system_prompt = (
         '''
@@ -49,7 +50,7 @@ def get_retrievalQA():
         - 당신은 국문학과 교수입니다.
         - 주어진 대화 이력과 사용자의 최근 질문을 참고하여, 이전 대화의 맥락을 몰라도 이해할 수 있도록 질문을 재구성하세요.
         - 질문에 직접 답변하지 마세요. 
-        - 필요한 경우에만 질문을 다듬고, 다듬을 필요가 없으면 원래 질문을 그대로 반환하세요
+        - 필요한 경우에만 질문을 다듬고, 다듬을 필요가 없으면 원래 질문을 그대로 반환하세요.
         '''
     )
 
@@ -60,6 +61,7 @@ def get_retrievalQA():
             ("human", "{input}"),
         ]
     )
+
     history_aware_retriever = create_history_aware_retriever(
         llm, retriever, contextualize_q_prompt
     )
@@ -92,20 +94,21 @@ def get_retrievalQA():
         get_session_history,
         input_messages_key="input",
         history_messages_key="chat_history",
-        output_messages_key="answer"
-        )
+        output_messages_key="answer",
+    ).pick("answer")
+
     return conversational_rag_chain
 
 
 def get_ai_message(user_message, session_id=None):
-    conversational_rag_chain = get_retrievalQA()
+    qa_chain = get_retrievalQA()
 
-    ai_message = conversational_rag_chain.invoke(
+    ai_message = qa_chain.stream(
         {'input': user_message},
         config={'configurable': {'session_id': session_id}},
     )
     
-    # print(f'대화 이력 >> {get_session_history(session_id)} \n\n')
-    # print('=' * 50 + '\n')
+    print(f'대화 이력 >> {get_session_history(session_id)} \n\n')
+    print('=' * 100 + '\n')
   
-    return ai_message['answer']
+    return ai_message

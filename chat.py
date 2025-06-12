@@ -28,5 +28,5 @@ if prompt := st.chat_input('전세사기 피해와 관련된 질문을 해주세
                 user_message=prompt,
                 session_id=session_id
                 )
-            st.write(ai_message)
+            ai_message = st.write_stream(ai_message)
     st.session_state.message_list.append({'role': 'ai', 'content': ai_message})
