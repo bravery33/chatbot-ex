@@ -39,11 +39,7 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
     return store[session_id]
 
 
-def get_retrievalQA():
-    llm = get_llm()
-    database = get_database()
-    retriever = database.as_retriever(search_kwargs={'k': 2})
-
+def get_history_retriever(llm, retriever):
     contextualize_q_system_prompt = (
         '''
         [identity]
@@ -66,17 +62,21 @@ def get_retrievalQA():
         llm, retriever, contextualize_q_prompt
     )
 
+    return history_aware_retriever
+
+
+def get_qa_prompt():
     system_prompt = (
-    '''
-    [identity]
-    - 당신은 전세 사기 피해 법률 전문 변호사입니다.
-    - [context]를 참고하여 사용자의 질문에 답변하세요.
-    - 마지막 문단에는 답변에 해당하는 정확한 법률 조항을 기재하세요.
-    - 전세 사기 피해 관련 질문 이외에는 '해당 질문에는 답변할 수 없습니다'로 답하세요
-    [context]
-    {context}
-    '''
-    )
+        '''
+        [identity]
+        - 당신은 전세 사기 피해 법률 전문 변호사입니다.
+        - [context]를 참고하여 사용자의 질문에 답변하세요.
+        - 마지막 문단에는 답변에 해당하는 정확한 법률 조항을 기재하세요.
+        - 전세 사기 피해 관련 질문 이외에는 '해당 질문에는 답변할 수 없습니다'로 답하세요
+        [context]
+        {context}
+        '''
+        )
 
     qa_prompt = ChatPromptTemplate.from_messages(
     [
@@ -85,6 +85,16 @@ def get_retrievalQA():
         ('human', '{input}'),               
     ]
     )
+
+    return qa_prompt
+
+
+def build_conversational_chain():
+    llm = get_llm()
+    database = get_database()
+    retriever = database.as_retriever(search_kwargs={'k': 2})
+    history_aware_retriever= get_history_retriever(llm, retriever)
+    qa_prompt = get_qa_prompt()
 
     question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
@@ -100,8 +110,8 @@ def get_retrievalQA():
     return conversational_rag_chain
 
 
-def get_ai_message(user_message, session_id=None):
-    qa_chain = get_retrievalQA()
+def stream_ai_message(user_message, session_id=None):
+    qa_chain = build_conversational_chain()
 
     ai_message = qa_chain.stream(
         {'input': user_message},
