@@ -11,17 +11,18 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
+
 from config import answer_examples
 
 load_dotenv()
 store = {}
 
-def get_llm(model='gpt-4o'):
-    llm = ChatOpenAI(model=model)
-    return llm
+
+def load_llm(model='gpt-4o'):
+    return ChatOpenAI(model=model)
 
 
-def get_database():
+def load_vectorstore():
     PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
     Pinecone(api_key=PINECONE_API_KEY)
     embedding = OpenAIEmbeddings(model='text-embedding-3-large')
@@ -40,7 +41,7 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
     return store[session_id]
 
 
-def get_history_retriever(llm, retriever):
+def build_history_aware_retriever(llm, retriever):
     contextualize_q_system_prompt = (
         '''
         [identity]
@@ -66,7 +67,26 @@ def get_history_retriever(llm, retriever):
     return history_aware_retriever
 
 
-def get_qa_prompt():
+def build_few_shot_examples() -> str:
+    ## few-shot 
+    from langchain_core.prompts import FewShotPromptTemplate, PromptTemplate
+
+    ## 단일 예시
+    example_prompt = PromptTemplate.from_template("질문: {input}\n\답변: {answer}")
+    ## 다중 예시
+    few_shot_prompt = FewShotPromptTemplate(
+        examples=answer_examples, ## type(전체: list, 개별: dict)
+        example_prompt=example_prompt,
+        prefix="다음 질문에 답변하세요 :"
+        suffix="질문: {input}",
+        input_variables=["input"],
+    )
+    foramtted_few_shot_prompt = few_shot_prompt.format(input='{input}')
+
+    return foramtted_few_shot_prompt
+
+
+def build_qa_prompt():
     system_prompt = (
         '''
         [identity]
@@ -78,19 +98,8 @@ def get_qa_prompt():
         {context}
         '''
         )
-    ## few-shot 
-    from langchain_core.prompts import PromptTemplate
-    from langchain_core.prompts import FewShotPromptTemplate
-    ## 단일 예시
-    example_prompt = PromptTemplate.from_template("Question: {input}\n\nAnswer: {answer}")
-    ## 다중 예시
-    few_shot_prompt = FewShotPromptTemplate(
-        examples=answer_examples, ## type(전체: list, 개별: dict)
-        example_prompt=example_prompt,
-        suffix="Question: {input}",
-        input_variables=["input"],
-    )
-    foramtted_few_shot_prompt = few_shot_prompt.format(input='{input}')
+    
+    foramtted_few_shot_prompt = build_few_shot_examples()
 
     qa_prompt = ChatPromptTemplate.from_messages(
     [
@@ -105,11 +114,11 @@ def get_qa_prompt():
 
 
 def build_conversational_chain():
-    llm = get_llm()
-    database = get_database()
+    llm = load_llm()
+    database = load_vectorstore()
     retriever = database.as_retriever(search_kwargs={'k': 2})
-    history_aware_retriever= get_history_retriever(llm, retriever)
-    qa_prompt = get_qa_prompt()
+    history_aware_retriever= build_history_aware_retriever(llm, retriever)
+    qa_prompt = build_qa_prompt()
 
     question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
