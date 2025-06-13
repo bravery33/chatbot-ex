@@ -1,7 +1,8 @@
 import os
 
 from dotenv import load_dotenv
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains import (create_history_aware_retriever,
+                              create_retrieval_chain)
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
@@ -10,7 +11,6 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
-
 
 load_dotenv()
 store = {}
@@ -120,5 +120,6 @@ def stream_ai_message(user_message, session_id=None):
     
     print(f'대화 이력 >> {get_session_history(session_id)} \n\n')
     print('=' * 100 + '\n')
+    print(f'[stream_ai_message 함수 내 출력] session_id >> {session_id}')
   
     return ai_message
