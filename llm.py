@@ -11,6 +11,7 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
+from config import answer_examples
 
 load_dotenv()
 store = {}
@@ -77,10 +78,24 @@ def get_qa_prompt():
         {context}
         '''
         )
+    ## few-shot 
+    from langchain_core.prompts import PromptTemplate
+    from langchain_core.prompts import FewShotPromptTemplate
+    ## 단일 예시
+    example_prompt = PromptTemplate.from_template("Question: {input}\n\nAnswer: {answer}")
+    ## 다중 예시
+    few_shot_prompt = FewShotPromptTemplate(
+        examples=answer_examples, ## type(전체: list, 개별: dict)
+        example_prompt=example_prompt,
+        suffix="Question: {input}",
+        input_variables=["input"],
+    )
+    foramtted_few_shot_prompt = few_shot_prompt.format(input='{input}')
 
     qa_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", system_prompt),          
+        ('system', system_prompt),   
+        ('assistant', foramtted_few_shot_prompt),       
         MessagesPlaceholder('chat_history'),
         ('human', '{input}'),               
     ]
