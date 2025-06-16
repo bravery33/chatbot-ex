@@ -1,4 +1,5 @@
 import os
+import json
 
 from dotenv import load_dotenv
 from langchain.chains import (create_history_aware_retriever,
@@ -19,6 +20,7 @@ store = {}
 
 
 def load_llm(model='gpt-4o'):
+    
     return ChatOpenAI(model=model)
 
 
@@ -32,12 +34,14 @@ def load_vectorstore():
         index_name=index_name,
         embedding=embedding,
     )
+
     return database
 
 
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
     if session_id not in store:
         store[session_id] = ChatMessageHistory()
+
     return store[session_id]
 
 
@@ -86,49 +90,22 @@ def build_few_shot_examples() -> str:
     return foramtted_few_shot_prompt
 
 
-def build_qa_prompt():
-    ##[keyword dictionary]
-    '''
-    1. 기본형태(가장 일반적인 형태)
-    질문 1개 = 답변 1개, 단순+빠름
-    활용 예: FAQ 챗봇, 버튼식 응답
-    
-    keyword_dictionary = {
-        '임대인': '임대인은 주택을 임차인에게 제공하고, 계약 종료 시 보증금을 반환할 의무가 있는 자입니다.',
-        '주택': '주택이란 「주택임대차보호법」 제2조에 따른 주거용 건물(공부상 주거용 건물이 아니라도 임대차계약 체결 당시 임대차목적물의 구조와 실질이 주거용 건물이고 임차인의 실제 용도가 주거용인 경우를 포함한다)을 말한다.',
-    }
-    '''
-    '''
-    2. 질문형 키워드(질문 다양성 대응)
-    유사한 질문을 여러 키로 분기하여 모두 같은 대답으로 연결, fallback 대응
-    활용 예: 키워드 FAQ 챗봇, 단답 챗봇
+def load_dictionay_from_file(path='keyword_dictionary.json'):
+    with open(path, 'r', encoding='utf-8') as file:
 
-    keyword_dictionary = {
-        '임대인 알려줘': '🍕임대인은 주택을 임차인에게 제공하고, 계약 종료 시 보증금을 반환할 의무가 있는 자입니다.',
-        '주택 알려줘': '🥞주택이란 「주택임대차보호법」 제2조에 따른 주거용 건물(공부상 주거용 건물이 아니라도 임대차계약 체결 당시 임대차목적물의 구조와 실질이 주거용 건물이고 임차인의 실제 용도가 주거용인 경우를 포함한다)을 말한다.',
-        '임대인': '🍕임대인은 주택을 임차인에게 제공하고, 계약 종료 시 보증금을 반환할 의무가 있는 자입니다.',
-    }
-    '''
-    '''
-    3. 키워드 + 태그 기반 딕셔너리
-    '''
-    keyword_dictionary = {
-        '임대인': {
-            'definition': '전세사기피해자법 제2조 제2항에 따른 임대인의 정의입니다.',
-            'source': '전세사기피해자법 제2조',
-            'tag': ['법률', '용어', '기초'],
-        },
-        '주택': {
-            'definition': '전세사기피해자법 제2조 제1항에 따른 주택의 정의입니다.',
-            'source': '전세사기피해자법 제2조',
-            'tag': ['법률', '용어', '기초'],
-        }}
+        return json.load(file)
 
-    dictionary_text = '\n'.join([
-        f'{k} {v["tag"]}: {v["definition"]} [출처: {v["source"]}]'
-        for k, v in keyword_dictionary.items()
+
+def build_dictionary_text(dictionary: dict) -> str: 
+    return '\n'.join([
+        f'{k} ({", ".join(v["tag"])}): {v["definition"]} [출처: {v["source"]}]'
+        for k, v in dictionary.items()
         ])
-    
+
+
+def build_qa_prompt():
+    keyword_dictionary = load_dictionay_from_file()
+    dictionary_text = build_dictionary_text(keyword_dictionary)
     system_prompt = (
         '''
         [identity]
@@ -192,6 +169,5 @@ def stream_ai_message(user_message, session_id=None):
     print(f'대화 이력 >> {get_session_history(session_id)} \n\n')
     print('=' * 100 + '\n')
     print(f'[stream_ai_message 함수 내 출력] session_id >> {session_id}')
-
 
     return ai_message
